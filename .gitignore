@@ -1,0 +1,74 @@
+# =============================================================================
+# O repositório versiona o PROJETO: código, testes, scripts e a documentação
+# da engenharia reversa. Fora disso, nada.
+#
+# O que NÃO entra e por quê:
+#   - dado de ensaio de cliente (.PTE/.PT2/.PTN/.pda/.bup) — medição de
+#     fundação de terceiros
+#   - capturas USB brutas (.pcapng) — contêm tráfego de ensaio real
+#   - material da PDI (brochuras, newsletters) — copyright do fabricante
+#   - certificados e fotos — número de série de equipamento
+#   - artefatos de build (node_modules, dist, release)
+#
+# A INFORMAÇÃO extraída desses arquivos está documentada em texto nos
+# .md da pasta reverse-engineering — é isso que importa preservar.
+# =============================================================================
+
+# --- Dados de ensaio de cliente ---
+samples/*
+!samples/.gitkeep
+*.PTE
+*.pte
+*.PT2
+*.PTN
+*.pda
+*.bup
+software/capture/*
+!software/capture/.gitkeep
+
+# --- Capturas USB brutas e derivados (tráfego de ensaio real) ---
+*.pcapng
+reverse-engineering/capturas/
+reverse-engineering/capturateste/
+
+# --- Certificados e fotos (número de série de equipamento) ---
+reverse-engineering/certificados/
+Pitimg/
+
+# --- Material da PDI: copyright do fabricante, não é o projeto ---
+conhecimento/
+
+# --- Blobs de licença/propriedade do equipamento ---
+*own.bin
+
+# --- Ferramenta de terceiro com repositório git próprio: aninhar repos
+#     quebra o versionamento (git trata como submódulo inválido) ---
+graphify/
+
+# --- Saída de ferramenta de análise (regenerável) ---
+graphify-out/
+reverse-engineering/graphify-out/
+software/src/graphify-out/
+
+# --- Episódio do touchscreen: não faz parte do projeto ---
+mouse_inverter*.ahk
+mouse_test.ahk
+
+# --- Node / Electron ---
+node_modules/
+software/dist/
+software/dist-electron/
+software/release/
+software/build/icon.ico
+software/public/icon.png
+software/test/build/
+software/test/build-electron/
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- Artefatos de teste de UI ---
+.playwright-mcp/
+*.png
+!software/public/*.png

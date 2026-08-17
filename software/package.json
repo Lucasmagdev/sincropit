@@ -1,0 +1,50 @@
+{
+  "name": "pit-viewer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "node scripts/gen-icon.mjs && vite",
+    "build": "node scripts/gen-icon.mjs && tsc -b && vite build && node -e \"require('fs').writeFileSync('dist-electron/package.json', JSON.stringify({type:'commonjs'}))\"",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test": "tsc src/lib/pte.ts src/lib/fft.ts src/lib/reference.ts src/lib/recent.ts --ignoreConfig --outDir test/build --module esnext --target es2020 && tsc electron/fakePte.ts --ignoreConfig --outDir test/build-electron --module esnext --target es2020 --types node && node test/regression.mjs && node test/robustness.mjs && node test/fft.mjs && node test/simular.mjs && node test/referencia.mjs",
+    "dist": "npm run build && electron-builder"
+  },
+  "build": {
+    "appId": "com.fpit.pitviewer",
+    "productName": "Fpit Visualizador PIT",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "build/icon.ico"
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^1.26.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "oxlint": "^1.71.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "vite-plugin-electron": "^1.1.0",
+    "vite-plugin-electron-renderer": "^1.0.0"
+  }
+}

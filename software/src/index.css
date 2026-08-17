@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  font-feature-settings: "tnum" 1;
+}
+
+@media print {
+  html, body, #root {
+    background: #fff !important;
+  }
+  * {
+    color: #111 !important;
+    background-color: transparent !important;
+    border-color: #ccc !important;
+  }
+}
