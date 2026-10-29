@@ -99,6 +99,48 @@ grandeza e some do gráfico). Por isso `SiteReference.escala` guarda a escala
 usada, e o desenho reajusta por `escalaAtual / escalaRef`. O campo é opcional
 só por compatibilidade com referências salvas antes desta correção.
 
+## Regra dos parâmetros — eles são da BATIDA, não do arquivo
+
+O equipamento regrava o conjunto inteiro de parâmetros a cada golpe, e o
+operador pode mexer na configuração no meio do ensaio. Medido em ensaio
+gravado de propósito (`samples/E15-arrasamento.PTE`): no mesmo arquivo, `MD`
+vai de 2 para 4 e **`FS` de 66000 para 134000** entre batidas.
+
+`processBlow` lia tudo de `pte.blocks[0]`. Como `x = (i − T1)/FS × WS/2`, usar
+a FS da primeira batida na segunda escala a profundidade inteira: medido,
+a ponta da estaca seria desenhada a **42,64 m em vez de 21,00 m — 103% de
+erro**. Nos 19 arquivos de cliente disponíveis os parâmetros não mudam entre
+batidas, então nenhum laudo saiu errado — mas o equipamento faz isso.
+
+Use `extrairParametrosDaBatida(pte, blowIndex, channel)`, que segue a mesma
+cadeia de precedência do T1: bloco da própria batida → bloco principal da
+batida (canal secundário pode não repetir o cabeçalho) → cabeçalho geral.
+Ausência é `undefined`, nunca zero: `MD=0` é valor legítimo, e tratar ausência
+como zero faria um bloco incompleto sobrescrever o valor verdadeiro.
+
+Travado por teste, incluindo a verificação de que a FS difere entre as duas
+batidas daquele arquivo.
+
+## Campos que alimentam o diário — `0304` e `0419`
+
+`extrairDadosEstaca(cabecalhoGeral, cabecalhoDaBatida?)` devolve nome, tipo,
+área, diâmetro derivado, arrasamento, operador e empresa. Serve para
+pré-preencher o app do Diário (ver `software/sync/HANDOFF-DIARIO.md`).
+
+- **`0304` = tipo da estaca** (`"HC"`, `"RAIZ"`). Layout muda entre versões:
+  buffer de 280 caracteres com o valor repetido nos arquivos antigos, campo
+  curto nos novos — a regra é pegar o primeiro trecho não vazio. **Sai
+  normalizado em maiúsculas**: o mesmo operador digitou `hc` num ensaio e `HC`
+  nos outros, e sem normalizar o diário listaria dois tipos de estaca onde
+  existe um só.
+- **`0419` = L1 (arrasamento), em metros.** Identificado por eliminação e
+  confirmado com três valores (2, 10, 0.7) no mesmo arquivo. É **por batida**.
+- **diâmetro** derivado de `0413` (área): `2·√(A/π)·100`. Bate exato em quatro
+  diâmetros comerciais (50, 60, 45, 40 cm). Premissa: seção circular.
+
+Esses valores são o que o operador **digitou** no equipamento, não medição.
+Servem como sugestão em formulário, nunca como afirmação.
+
 ## Regra dos canais — nunca misturar sensores no mesmo eixo
 
 Os canais extras são sensores adicionais gravando o mesmo golpe, mas **a

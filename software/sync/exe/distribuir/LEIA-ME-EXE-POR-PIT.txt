@@ -1,0 +1,30 @@
+SINCRONPIT - UM EXECUTAVEL PARA CADA EQUIPAMENTO
+
+PIT-04 / 4960CF: SincronPIT-PIT-04-4960CF-ONLINE.exe
+PIT-07 / 5726CF: SincronPIT-PIT-07-5726CF-ONLINE.exe
+
+Copie apenas o executavel correspondente para o computador do PIT e abra.
+Nao precisa de instalador, config.txt ao lado do executavel nem editar TXT.
+O programa ja conhece o equipamento e o servidor:
+https://api.142-93-206-231.sslip.io/functions/v1/ingerir
+
+As pastas padrao do PDI sao detectadas pelo usuario do Windows.
+Marque as obras e escolha o pendrive para exportar os ensaios.
+O original nunca e apagado nem alterado.
+
+ENVIO ONLINE
+Identificacoes corretas do servidor: pit-04 e pit-07.
+Os tokens individuais foram renovados em 28/10/2026 e estao embutidos nestes
+executaveis. Basta substituir o EXE antigo pelo correspondente e abrir.
+Nao e preciso editar nem copiar config.txt. Mesmo se houver configuracao
+antiga salva, o EXE usa a identificacao, a URL e a credencial embutidas.
+As versoes anteriores desses dois PITs precisam ser substituidas, pois os
+tokens antigos deixaram de valer. Sem internet, a exportacao por pendrive
+continua disponivel.
+
+VALIDACAO
+Os dois EXEs enviaram PTEs sinteticos ao servidor real, que confirmou o
+recebimento e o reenvio duplicado. Os bytes armazenados foram conferidos
+por SHA-256. Os registros sinteticos foram removidos; ensaios reais intactos.
+
+Cada PIT usa sua propria pasta de dados em %APPDATA%\SincronPIT\<machineid>.

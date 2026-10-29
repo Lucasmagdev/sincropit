@@ -1,0 +1,13 @@
+Olá! Gostaria de solicitar uma cotação para os seguintes itens:
+
+• 1 acelerômetro PCB Piezotronics 352C33;
+• 1 cabo PCB 003C05;
+• 1 conversor USB PCB 485B39.
+
+O conjunto será utilizado em um protótipo de ensaio de integridade de estacas (PIT), com software próprio.
+
+Por favor, informem o preço de cada item e do conjunto, a disponibilidade em estoque e o prazo de entrega para Belo Horizonte/MG, incluindo frete e emissão de nota fiscal brasileira.
+
+Solicito também a confirmação de compatibilidade entre os três itens e informações sobre base/acoplamento para concreto e certificado de calibração do sensor.
+
+Obrigado!

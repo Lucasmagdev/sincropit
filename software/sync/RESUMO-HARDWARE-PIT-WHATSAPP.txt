@@ -1,0 +1,18 @@
+*Proposta de protótipo de PIT próprio*
+
+A ideia é montar um conjunto cabeado, sem solda, e adaptar o Fpit que já temos para receber as batidas pelo USB. Precisamos cotar:
+
+1. *Acelerômetro PCB 352C33:* capta a vibração da estaca. Mede frequências até 10 kHz (10 mil ciclos por segundo) e acelerações de até ±50 g.
+https://www.pcb.com/pt/produtos?m=352C33
+
+2. *Cabo PCB 003C05:* liga o sensor ao conversor. Tem 1,52 m e conectores prontos.
+https://www.pcb.com/pt/produtos?m=003c05
+
+3. *Conversor USB PCB 485B39:* alimenta o sensor e envia os dados ao computador, capturando até 48 mil amostras por segundo, com 24 bits.
+https://www.pcb.com/pt/produtos?m=485B39
+
+*Cotação no Brasil:* MTS — (11) 5501-5300 — vendas@mtsbrasil.com.br. Incluir acoplamento para concreto e calibração.
+
+*Software:* aproveitaríamos o Fpit, acrescentando a captura USB e a calibração do novo sensor. O fabricante permite o uso de software próprio.
+
+Antes de usar em laudos, precisamos testar o conjunto e validar a medição com o PIT-Q.

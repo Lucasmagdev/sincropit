@@ -72,3 +72,19 @@ __pycache__/
 .playwright-mcp/
 *.png
 !software/public/*.png
+
+# --- Credenciais do Fpit Sync ---
+# config.txt carrega o TOKEN do equipamento em texto puro. Ele é limitado e
+# revogável, mas mesmo assim é credencial: nunca no repositório.
+software/sync/exe/config.txt
+software/sync/**/config.txt
+software/sync/**/sonda-*.txt
+software/sync/**/sonda-*.json
+software/sync/exe/*.exe
+software/sync/exe/.credentials/
+software/sync/exe/distribuir/*.exe
+
+# Executaveis/zips por equipamento embutem o TOKEN do PIT
+software/sync/exe/distribuir/*.zip
+software/sync/exe/backup-*/*.exe
+software/sync/**/*.exe

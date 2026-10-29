@@ -124,17 +124,174 @@ export interface BlowParams {
   FS: number; // taxa de amostragem (Hz)
 }
 
-export function extractGeneralParams(generalHeader: TlvRecord[]): { WS: number; LE: number; MD: number; MA: number; FS: number } {
-  const num = (tag: string, fallback = 0) => {
-    const r = findTag(generalHeader, tag);
-    return r && r.kind === "num" && typeof r.value === "number" ? r.value : fallback;
+/**
+ * Parâmetros presentes NESTE cabeçalho. `undefined` significa ausente, não
+ * zero — a diferença importa porque MD=0 é valor legítimo, e tratar ausência
+ * como zero faria um bloco sem MD sobrescrever o MD verdadeiro do arquivo.
+ */
+function parametrosPresentes(records: TlvRecord[]): {
+  WS?: number; LE?: number; MD?: number; MA?: number; FS?: number;
+} {
+  const num = (tag: string): number | undefined => {
+    const r = findTag(records, tag);
+    return r && r.kind === "num" && typeof r.value === "number" ? r.value : undefined;
   };
+  return { WS: num("0403"), LE: num("0404"), MD: num("0405"), MA: num("0407"), FS: num("0414") };
+}
+
+export function extractGeneralParams(generalHeader: TlvRecord[]): { WS: number; LE: number; MD: number; MA: number; FS: number } {
+  const p = parametrosPresentes(generalHeader);
   return {
-    WS: num("0403"),
-    LE: num("0404"),
-    MD: num("0405"),
-    MA: num("0407"),
-    FS: num("0414", 50000),
+    WS: p.WS ?? 0,
+    LE: p.LE ?? 0,
+    MD: p.MD ?? 0,
+    MA: p.MA ?? 0,
+    FS: p.FS ?? 50000,
+  };
+}
+
+/**
+ * Parâmetros da BATIDA, não do arquivo.
+ *
+ * O equipamento regrava o conjunto inteiro a cada golpe, e o operador pode
+ * mexer na configuração no meio do ensaio. Medido num arquivo real gravado
+ * para este teste: `MD` foi de 2 para 4 e `FS` de 66000 para 134000 entre
+ * batidas do MESMO arquivo.
+ *
+ * Ler tudo do bloco 0 — como era feito antes — significaria desenhar a
+ * segunda batida com a taxa de amostragem da primeira. Como
+ * `x = (i − T1)/FS × WS/2`, usar metade da FS **dobra toda a profundidade do
+ * gráfico**: a ponta da estaca apareceria ao dobro da distância real. Nos 19
+ * arquivos de cliente disponíveis os parâmetros não mudam entre batidas, então
+ * nenhum laudo saiu errado por isso — mas o equipamento comprovadamente faz
+ * isso, e em obra é uma tecla.
+ *
+ * Precedência: bloco da própria batida → bloco principal da batida (canal
+ * secundário pode não repetir o cabeçalho) → cabeçalho geral do arquivo.
+ * Mesma cadeia que o T1 já usava.
+ */
+export function extrairParametrosDaBatida(
+  pte: PteFile,
+  blowIndex: number,
+  channel = 0
+): { WS: number; LE: number; MD: number; MA: number; FS: number } {
+  const idxCanal = blocoDoCanal(pte, blowIndex, channel);
+  const idxPrincipal = blocoDoCanal(pte, blowIndex, 0);
+  const doBloco = parametrosPresentes(
+    idxCanal !== undefined ? pte.blocks[idxCanal].headerRecords : []
+  );
+  const doPrincipal = parametrosPresentes(
+    idxPrincipal !== undefined ? pte.blocks[idxPrincipal].headerRecords : []
+  );
+  const geral = parametrosPresentes(pte.blocks[0]?.headerRecords ?? []);
+  const esc = (k: "WS" | "LE" | "MD" | "MA" | "FS"): number | undefined =>
+    doBloco[k] ?? doPrincipal[k] ?? geral[k];
+  return {
+    WS: esc("WS") ?? 0,
+    LE: esc("LE") ?? 0,
+    MD: esc("MD") ?? 0,
+    MA: esc("MA") ?? 0,
+    FS: esc("FS") ?? 50000,
+  };
+}
+
+/**
+ * Dados de cadastro da estaca — o que o operador digitou no equipamento antes
+ * do ensaio. Não é medição: é declaração. Serve para pré-preencher formulário,
+ * nunca para afirmar geometria.
+ */
+export interface DadosEstaca {
+  nome?: string;        // 0303 — normalmente igual ao nome do arquivo
+  tipo?: string;        // 0304 — "HC" (hélice contínua), "RAIZ", ... em maiúsculas
+  areaSecaoM2?: number; // 0413
+  diametroCm?: number;  // derivado da área, assumindo seção circular
+  arrasamentoM?: number; // 0419 — L1 na tela do PIT-W
+  operadorEData?: string; // 0202
+  empresa?: string;       // 0203
+}
+
+/**
+ * Extrai o cadastro da estaca do cabeçalho geral.
+ *
+ * Sobre o campo de tipo (0304): o layout muda entre versões do PIT-W. Nos
+ * arquivos B135 ele é um buffer de 280 caracteres com o valor repetido em duas
+ * posições (0 e 218), preenchido com espaços; nos PF/ENCONTRO é um campo curto
+ * ("HC", "RAIZ"). A regra que vale nos dois é pegar o primeiro trecho não
+ * vazio. O segundo slot dos arquivos antigos continua sem explicação — nos
+ * exemplos disponíveis ele repete o primeiro, então não dá para distinguir.
+ */
+export function extrairDadosEstaca(
+  generalHeader: TlvRecord[],
+  /** Cabeçalho da batida em questão, quando houver. O arrasamento é gravado
+   * por golpe: num arquivo de teste o mesmo ensaio tem L1 = 2, 10 e 0.7 em
+   * três batidas. Sem isto, o formulário mostraria sempre o valor da primeira
+   * — que pode não ser o que o operador acabou usando. */
+  blocoDaBatida?: TlvRecord[]
+): DadosEstaca {
+  const onde = (tag: string): TlvRecord | undefined =>
+    (blocoDaBatida ? findTag(blocoDaBatida, tag) : undefined) ?? findTag(generalHeader, tag);
+
+  /** Texto do campo, só aparado. Espaço interno é conteúdo: existe estaca
+   *  chamada "C1  154 -2 A" — com espaço duplo mesmo. */
+  const texto = (tag: string): string | undefined => {
+    const r = onde(tag);
+    if (!r || r.kind !== "text" || typeof r.value !== "string") return undefined;
+    const t = r.value.trim();
+    return t.length > 0 ? t : undefined;
+  };
+
+  /** Só para o campo de TIPO (0304), que nas versões antigas do PIT-W vem num
+   *  buffer de 280 caracteres com o valor e o resto em espaços. Recorta no
+   *  primeiro trecho para não levar 200 espaços junto.
+   *
+   *  Este recorte NÃO pode ser aplicado ao nome (0303): já foi, e transformou
+   *  59 estacas "C1  154 -2 X" em 59 estacas chamadas "C1" — o diário
+   *  mostraria a obra inteira como uma estaca só. */
+  const textoDeCampoPreenchido = (tag: string): string | undefined => {
+    const bruto = texto(tag);
+    if (bruto === undefined) return undefined;
+    const primeiro = bruto.split(/\s{2,}/)[0].trim();
+    return primeiro.length > 0 ? primeiro : undefined;
+  };
+  const numero = (tag: string): number | undefined => {
+    const r = onde(tag);
+    return r && r.kind === "num" && typeof r.value === "number" && Number.isFinite(r.value)
+      ? r.value
+      : undefined;
+  };
+
+  const area = numero("0413");
+  // Seção circular: A = π·r². Confirmado em três obras contra diâmetros
+  // comerciais (0.19635→50cm, 0.28274→60cm, 0.15904→45cm, erro zero nos três).
+  // Estaca de seção não circular daria diâmetro sem sentido — por isso o campo
+  // se chama "diametroCm" e não "dimensão", e quem consome precisa saber que a
+  // premissa é essa.
+  const diametroCm =
+    area !== undefined && area > 0 ? 2 * Math.sqrt(area / Math.PI) * 100 : undefined;
+
+  // L1 na tela do PIT-W = arrasamento. Identificado por eliminação: dos 14
+  // campos numéricos sem significado confirmado, `0419` é o ÚNICO que sai do
+  // zero num ensaio gravado de propósito com L1 preenchido — nos outros 49
+  // arquivos reais (quatro obras) ele vale 0, junto com os outros treze.
+  //
+  // Evidência de UM arquivo, com UM valor. Vale confirmar com um segundo
+  // ensaio de L1 diferente antes de tratar como certeza: neste arquivo L1
+  // calhou de ser 2, o mesmo valor de MD (0405), então "casou com 2" não
+  // distingue as duas hipóteses sozinho.
+  const arrasamento = numero("0419");
+
+  return {
+    nome: texto("0303"),
+    // Maiúsculas de propósito: o operador digitou "hc" num ensaio e "HC" nos
+    // outros. Sem normalizar, o diário passaria a listar dois tipos de estaca
+    // onde existe um só, e o técnico teria que escolher entre duas linhas
+    // idênticas. É código, não texto livre — caixa não carrega significado.
+    tipo: textoDeCampoPreenchido("0304")?.toUpperCase(),
+    areaSecaoM2: area,
+    diametroCm,
+    arrasamentoM: arrasamento !== undefined && arrasamento > 0 ? arrasamento : undefined,
+    operadorEData: texto("0202"),
+    empresa: texto("0203"),
   };
 }
 
@@ -267,11 +424,10 @@ export function blockHasSignal(pte: PteFile, block: PteBlock): boolean {
  * razão de amplitude de **0.1x a 25000x** conforme o arranjo de sensores do
  * ensaio. Use `correlacaoComPrincipal` pra saber caso a caso. */
 export function availableChannels(pte: PteFile, blowIndex: number): number[] {
-  const base = blowIndex * 4;
   const out: number[] = [];
   for (let c = 0; c < 4; c++) {
-    const blk = pte.blocks[base + c];
-    if (blk && blockHasSignal(pte, blk)) out.push(c);
+    const idx = blocoDoCanal(pte, blowIndex, c);
+    if (idx !== undefined && blockHasSignal(pte, pte.blocks[idx])) out.push(c);
   }
   return out;
 }
@@ -332,15 +488,25 @@ export function processBlow(
     escala?: number;
   } = {}
 ): BlowResult {
-  const blockIdx = blowIndex * 4 + (opts.channel ?? 0);
+  const blockIdx = blocoDoCanal(pte, blowIndex, opts.channel ?? 0);
+  if (blockIdx === undefined) {
+    throw new Error(
+      `batida ${blowIndex} canal ${opts.channel ?? 0} não existe ` +
+      `(arquivo tem ${countBlows(pte)} batida(s))`
+    );
+  }
   const block = pte.blocks[blockIdx];
-  if (!block) throw new Error(`bloco ${blockIdx} não existe (arquivo só tem ${pte.blocks.length} blocos)`);
 
-  const general = extractGeneralParams(pte.blocks[0].headerRecords);
+  // Parâmetros DA BATIDA, não do arquivo: o operador pode mudar MD/FS entre
+  // golpes, e o equipamento regrava o cabeçalho a cada um.
+  const general = extrairParametrosDaBatida(pte, blowIndex, opts.channel ?? 0);
   // canais secundários podem não repetir o T1 no próprio cabeçalho — nesse
   // caso usa o do bloco principal da mesma batida (mesmo golpe, mesmo
   // instante de trigger).
-  const T1 = extractT1(block.headerRecords) ?? extractT1(pte.blocks[blowIndex * 4]?.headerRecords ?? []);
+  const idxPrincipalT1 = blocoDoCanal(pte, blowIndex, 0);
+  const T1 =
+    extractT1(block.headerRecords) ??
+    extractT1(idxPrincipalT1 !== undefined ? pte.blocks[idxPrincipalT1].headerRecords : []);
   if (!general.WS || !general.LE || !general.MA || T1 === undefined) {
     throw new Error(`não consegui extrair WS/LE/MA/T1 do bloco ${blockIdx}`);
   }
@@ -401,6 +567,35 @@ export function processBlow(
   }
 
   return { params, points, velocitySignal: vel2.slice(T1), escala: scale };
+}
+
+/**
+ * Bloco de um canal de uma batida.
+ *
+ * Passo fixo de 4 blocos por batida — é o que os 18 arquivos de regressão
+ * validam, e o que o pipeline de sinal usa há tempo.
+ *
+ * LIMITAÇÃO CONHECIDA, não corrigida aqui de propósito: a suposição não vale
+ * para todo arquivo.
+ *
+ *   `C1  154 -2 A` (obra 01-10-2021): 2 blocos -> floor(2/4) = 0 batidas.
+ *   Como o App recusa arquivo com countBlows() < 1, o visualizador REJEITA
+ *   esses 59 ensaios reais. O envio para a nuvem não é afetado — o
+ *   SincronPIT manda o arquivo inteiro e o servidor extrai o cabeçalho sem
+ *   depender disto.
+ *
+ *   `E15`: blocos 4 e 5 iniciam golpes diferentes (L1 = 10 e 0.7); com passo
+ *   fixo a terceira batida fica invisível.
+ *
+ * A correção não é "contar blocos com cabeçalho completo": nos arquivos
+ * ENCONTRO os SETE blocos têm cabeçalho, e ali eles são canais do mesmo
+ * golpe, não sete golpes. Separar golpe de canal precisa do carimbo de tempo
+ * do bloco, e isso é mudança no coração do pipeline — merece sessão própria,
+ * com a suíte inteira como rede.
+ */
+export function blocoDoCanal(pte: PteFile, blowIndex: number, channel: number): number | undefined {
+  const idx = blowIndex * 4 + channel;
+  return idx < pte.blocks.length ? idx : undefined;
 }
 
 export function countBlows(pte: PteFile): number {
@@ -511,8 +706,10 @@ export function correlacaoComPrincipal(
   channel: number
 ): number | undefined {
   if (channel === 0) return undefined;
-  const principal = pte.blocks[blowIndex * 4];
-  const secundario = pte.blocks[blowIndex * 4 + channel];
+  const iP = blocoDoCanal(pte, blowIndex, 0);
+  const iS = blocoDoCanal(pte, blowIndex, channel);
+  const principal = iP !== undefined ? pte.blocks[iP] : undefined;
+  const secundario = iS !== undefined ? pte.blocks[iS] : undefined;
   if (!principal || !secundario) return undefined;
 
   const a = readSamples(pte, principal);

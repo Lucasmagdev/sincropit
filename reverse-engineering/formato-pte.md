@@ -465,3 +465,61 @@ sempre igual a MA quando MA é 20, a relação aparece.
 **Sem novidade em 0104, 040d, 0412 e 041b** — seguem constantes em todos os
 17 arquivos de 3 obras, o que reforça serem constantes de firmware, não
 configuração. Continuam sem significado identificado.
+
+## Campos identificados por ensaio controlado (31/08/2026)
+
+Dois campos que estavam na lista de "sem significado confirmado" foram
+resolvidos gravando ensaios de propósito no equipamento, com valores
+conhecidos, e comparando com os 49 arquivos anteriores.
+
+### `0304` — tipo da estaca
+
+Texto. Valores vistos: `"HC"` (hélice contínua), `"RAIZ"`, `"hc"`.
+
+O layout muda entre versões do PIT-W: nos arquivos B135 é um buffer de **280
+caracteres** com o valor repetido nas posições 0 e 218 e o resto preenchido
+com espaços; nos PF/ENCONTRO/E15 é campo curto. Regra que funciona nos dois:
+**primeiro trecho não vazio**. O segundo slot dos arquivos antigos continua
+sem explicação — nos exemplos disponíveis ele repete o primeiro.
+
+A caixa **não é normalizada pelo equipamento**: o mesmo operador digitou `hc`
+num ensaio e `HC` nos outros. Quem consome precisa normalizar.
+
+### `0419` — L1 (arrasamento), em metros
+
+Float64. Identificado por eliminação: dos 14 campos numéricos sem significado
+(`0408`–`040c`, `0410`, `0411`, `0416`–`041a`, `041c`, `041d`), **todos valem
+zero nos 49 arquivos reais de quatro obras** — ninguém tinha preenchido
+arrasamento. Num ensaio gravado com L1 preenchido, **apenas `0419`** saiu do
+zero.
+
+Confirmado com três valores diferentes no mesmo arquivo:
+
+```
+testendiario/E15.PTE
+  cabeçalho 0: 0419 = 2      MD = 2   FS =  66000
+  cabeçalho 1: 0419 = 10     MD = 4   FS = 134000
+  cabeçalho 2: 0419 = 0.7    MD = 4   FS = 134000
+```
+
+`0419` acompanhou os três valores digitados. Não é coincidência com `MD`
+(que vale 2 e 4 nos mesmos cabeçalhos).
+
+### Achado colateral: os parâmetros são POR BATIDA, não do arquivo
+
+O mesmo ensaio acima mostra `MD` indo de 2 para 4 e **`FS` de 66000 para
+134000** entre batidas do mesmo arquivo. O equipamento regrava o conjunto
+inteiro a cada golpe, e o operador pode mexer na configuração no meio do
+ensaio.
+
+Isso invalida a suposição de que o cabeçalho do bloco 0 vale para o arquivo
+todo. Como `x = (i − T1)/FS × WS/2`, usar a FS errada escala a profundidade
+inteira: medido, a segunda batida seria desenhada com a ponta a **42,64 m em
+vez de 21,00 m — 103% de erro**.
+
+Nos 19 arquivos de cliente disponíveis os parâmetros não mudam entre batidas,
+então nenhum laudo saiu errado por isso. Mas o equipamento comprovadamente faz
+isso.
+
+Nova área de seção confirmada nesse ensaio: `0413 = 0.12566` = π×0.20²,
+**diâmetro 40 cm** — quarto diâmetro comercial batendo exato na fórmula.
